@@ -358,6 +358,7 @@ const CourseRegistrationCard = ({ student, familyId, schoolYear, educationPlan }
           familyId={familyId}
           schoolYear={schoolYear}
           studentId={student.id}
+          asn={student.asn}
           onRemoveCourse={handleRemoveCourseRequest}
           onStatusUpdate={loadCoursesAndStatuses}
         />

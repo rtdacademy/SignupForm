@@ -46,7 +46,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../components/ui/tooltip';
-import { getCourseStatus, updateCourseStatus, validateFinalMark, getCourseMetadata } from '../../utils/courseManagementUtils';
+import { updateCourseStatus, validateFinalMark, getCourseMetadata } from '../../utils/courseManagementUtils';
+import PasiActionButtons from '../../components/PasiActionButtons';
 
 /**
  * Sheet component for managing course status and PASI registration
@@ -57,6 +58,10 @@ import { getCourseStatus, updateCourseStatus, validateFinalMark, getCourseMetada
  * @param {string} familyId - The family ID
  * @param {string} schoolYear - The school year (e.g., "25_26")
  * @param {number} studentId - The student ID (timestamp)
+ * @param {string} asn - The student's ASN (Alberta Student Number)
+ * @param {Object} initialStatus - Pre-loaded status from courseStatusSummary
+ * @param {boolean} isRegistrarMode - Skip confirmation dialogs for registrar actions
+ * @param {string} highlightAccordion - Accordion ID to highlight (e.g., 'step2')
  * @param {function} onRemoveCourse - Callback to remove the course
  * @param {function} onStatusUpdate - Callback after status is updated
  */
@@ -68,6 +73,10 @@ const CourseActionSheet = ({
   familyId,
   schoolYear,
   studentId,
+  asn,
+  initialStatus,
+  isRegistrarMode = false,
+  highlightAccordion = null,
   onRemoveCourse,
   onStatusUpdate,
 }) => {
@@ -92,67 +101,78 @@ const CourseActionSheet = ({
   const [localPasiRegistrationComment, setLocalPasiRegistrationComment] = useState('');
   const [localRegistrarComment, setLocalRegistrarComment] = useState('');
 
+  // Debug: Component mount
+  useEffect(() => {
+    console.log('🎬 CourseActionSheet component mounted');
+    return () => {
+      console.log('🎬 CourseActionSheet component unmounted');
+    };
+  }, []);
+
   // Extract course metadata once for inclusion in all status updates
   const courseMetadata = useMemo(() => getCourseMetadata(course), [course]);
 
-  // Load course status when sheet opens
+  // Load course status from initialStatus prop when sheet opens
   useEffect(() => {
-    if (open && course && familyId && schoolYear && studentId) {
-      loadCourseStatus();
+    console.log('=== INITIALIZE COURSE STATUS ===');
+    console.log('Open:', open);
+    console.log('Initial status:', initialStatus);
+
+    // Only initialize when sheet opens and initialStatus is available
+    if (!open || !initialStatus) {
+      console.log('⏸️ Sheet closed or no initial status, skipping initialization');
+      return;
     }
-  }, [open, course, familyId, schoolYear, studentId]);
 
-  const loadCourseStatus = async () => {
-    setLoading(true);
-    try {
-      const courseStatus = await getCourseStatus(familyId, schoolYear, studentId, course.id);
-      const finalMarkValue = courseStatus.finalMark !== null && courseStatus.finalMark !== undefined
-        ? String(courseStatus.finalMark)
-        : '';
-      const pasiRegistrationCommentValue = courseStatus.pasiRegistrationComment || '';
-      const registrarCommentValue = courseStatus.registrarComment || '';
+    console.log('✅ Initializing from prop...');
 
-      setStatus({
-        committed: courseStatus.committed || false,
-        needsPasiRegistration: courseStatus.needsPasiRegistration || false,
-        pasiRegistrationComment: pasiRegistrationCommentValue,
-        registrarConfirmedRegistration: courseStatus.registrarConfirmedRegistration || false,
-        finalMark: finalMarkValue,
-        registrarComment: registrarCommentValue,
-        registrarConfirmedMark: courseStatus.registrarConfirmedMark || false,
-        courseCodeVerified: courseStatus.courseCodeVerified || false,
-      });
+    const finalMarkValue = initialStatus.finalMark !== null && initialStatus.finalMark !== undefined
+      ? String(initialStatus.finalMark)
+      : '';
+    const pasiRegistrationCommentValue = initialStatus.pasiRegistrationComment || '';
+    const registrarCommentValue = initialStatus.registrarComment || '';
 
-      // Initialize local state for text inputs
-      setLocalFinalMark(finalMarkValue);
-      setLocalPasiRegistrationComment(pasiRegistrationCommentValue);
-      setLocalRegistrarComment(registrarCommentValue);
+    const newStatus = {
+      committed: initialStatus.committed || false,
+      needsPasiRegistration: initialStatus.needsPasiRegistration || false,
+      pasiRegistrationComment: pasiRegistrationCommentValue,
+      registrarConfirmedRegistration: initialStatus.registrarConfirmedRegistration || false,
+      finalMark: finalMarkValue,
+      registrarComment: registrarCommentValue,
+      registrarConfirmedMark: initialStatus.registrarConfirmedMark || false,
+      courseCodeVerified: initialStatus.courseCodeVerified || false,
+    };
 
-      // Auto-open accordions that are not in their final state
-      const accordionsToOpen = [];
+    console.log('💾 Setting status state to:', newStatus);
+    setStatus(newStatus);
 
-      // Step 1 stays open until committed
-      if (!courseStatus.committed) {
-        accordionsToOpen.push('step1');
-      }
+    // Initialize local state for text inputs
+    setLocalFinalMark(finalMarkValue);
+    setLocalPasiRegistrationComment(pasiRegistrationCommentValue);
+    setLocalRegistrarComment(registrarCommentValue);
 
-      // Step 2 stays open until either not requested OR confirmed as registered
-      if (courseStatus.committed && !courseStatus.registrarConfirmedRegistration) {
-        accordionsToOpen.push('step2');
-      }
+    // Auto-open accordions that are not in their final state
+    const accordionsToOpen = [];
 
-      // Step 3 stays open until mark is submitted and confirmed
-      if (courseStatus.committed && !courseStatus.registrarConfirmedMark) {
-        accordionsToOpen.push('step3');
-      }
-
-      setOpenAccordions(accordionsToOpen);
-    } catch (error) {
-      console.error('Error loading course status:', error);
-    } finally {
-      setLoading(false);
+    // Step 1 stays open until committed
+    if (!initialStatus.committed) {
+      accordionsToOpen.push('step1');
     }
-  };
+
+    // Step 2 stays open until either not requested OR confirmed as registered
+    if (initialStatus.committed && !initialStatus.registrarConfirmedRegistration) {
+      accordionsToOpen.push('step2');
+    }
+
+    // Step 3 stays open until mark is submitted and confirmed
+    if (initialStatus.committed && !initialStatus.registrarConfirmedMark) {
+      accordionsToOpen.push('step3');
+    }
+
+    console.log('📂 Setting open accordions:', accordionsToOpen);
+    setOpenAccordions(accordionsToOpen);
+    console.log('=== INITIALIZATION COMPLETE ===');
+  }, [open, initialStatus]);
 
   // Auto-save function for immediate updates (checkboxes)
   // Uses fire-and-forget pattern for instant UI response
@@ -276,8 +296,29 @@ const CourseActionSheet = ({
       }
     }
 
-    setPendingRegistrarChange({ field, newValue, message });
-    setConfirmDialogOpen(true);
+    // Skip confirmation dialog in registrar mode - apply changes directly
+    if (isRegistrarMode) {
+      let newStatus = {
+        ...status,
+        ...courseMetadata,
+        [field]: newValue
+      };
+
+      // If confirming mark submission, also confirm registration (mark can't be in PASI without student being registered)
+      if (field === 'registrarConfirmedMark' && newValue === true) {
+        newStatus.registrarConfirmedRegistration = true;
+      }
+
+      setStatus(newStatus);
+      autoSaveStatus({
+        ...newStatus,
+        finalMark: newStatus.finalMark && newStatus.finalMark !== '' ? Number(newStatus.finalMark) : null,
+      });
+    } else {
+      // Show confirmation dialog for non-registrar mode
+      setPendingRegistrarChange({ field, newValue, message });
+      setConfirmDialogOpen(true);
+    }
   };
 
   const confirmRegistrarChange = () => {
@@ -462,7 +503,10 @@ const CourseActionSheet = ({
 
               {/* Step 2: Early PASI Registration (Optional) */}
               {status.committed && (
-                <AccordionItem value="step2" className="mb-2">
+                <AccordionItem
+                  value="step2"
+                  className={`mb-2 ${highlightAccordion === 'step2' ? 'bg-blue-50 border-2 border-blue-300 rounded-lg' : ''}`}
+                >
                   <AccordionTrigger className="hover:no-underline">
                     <div className="flex items-center justify-between w-full pr-4">
                       <div className="flex items-center gap-3">
@@ -557,6 +601,20 @@ const CourseActionSheet = ({
                             </p>
                           </div>
                         </div>
+
+                        {/* PASI Action Buttons */}
+                        {asn && (
+                          <div className="mt-3 pt-3 border-t border-amber-200">
+                            <p className="text-xs text-gray-600 mb-2">Quick PASI Actions:</p>
+                            <TooltipProvider>
+                              <PasiActionButtons
+                                asn={asn}
+                                showYourWay={false}
+                                showCopyLink={false}
+                              />
+                            </TooltipProvider>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </AccordionContent>
@@ -692,6 +750,20 @@ const CourseActionSheet = ({
                             </p>
                           </div>
                         </div>
+
+                        {/* PASI Action Buttons */}
+                        {asn && (
+                          <div className="mt-3 pt-3 border-t border-amber-200">
+                            <p className="text-xs text-gray-600 mb-2">Quick PASI Actions:</p>
+                            <TooltipProvider>
+                              <PasiActionButtons
+                                asn={asn}
+                                showYourWay={false}
+                                showCopyLink={false}
+                              />
+                            </TooltipProvider>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </AccordionContent>

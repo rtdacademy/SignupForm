@@ -61,6 +61,12 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '../components/ui/accordion';
 import { toast } from 'sonner';
 
 /**
@@ -173,7 +179,7 @@ const CourseStatusDashboard = () => {
       },
       (error) => {
         console.error('Firebase query error:', error);
-        toast.error(`Failed to load course statuses: ${error.message}`);
+        //toast.error(`Failed to load course statuses: ${error.message}`);
         setCourseStatuses({});
         setLoading(false);
       }
@@ -270,14 +276,43 @@ const CourseStatusDashboard = () => {
     return filtered;
   }, [processedCourses, selectedTab, searchTerm, studentCache]);
 
+  // Filter completed registrations (registrarConfirmedRegistration === true)
+  const completedRegistrations = useMemo(() => {
+    let completed = processedCourses.filter(c =>
+      c.needsPasiRegistration === true &&
+      c.registrarConfirmedRegistration === true
+    );
+
+    // Apply search
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      completed = completed.filter(c => {
+        // Check searchable text
+        if (c.searchableText.includes(searchLower)) return true;
+
+        // Check student name if cached
+        const cacheKey = `${c.familyId}_${c.studentId}`;
+        if (studentCache[cacheKey] && studentCache[cacheKey].toLowerCase().includes(searchLower)) {
+          return true;
+        }
+
+        return false;
+      });
+    }
+
+    return completed;
+  }, [processedCourses, searchTerm, studentCache]);
+
   // Handle opening course action sheet
-  const handleOpenCourseAction = async (courseStatus) => {
-    setLoadingAction(courseStatus.summaryKey);
+  const handleOpenCourseAction = async (courseSummary) => {
+    console.log('=== ACTION BUTTON CLICKED ===');
+    console.log('Course Summary:', courseSummary);
+    setLoadingAction(courseSummary.summaryKey);
 
     try {
       // Fetch family data
       const db = getDatabase();
-      const familyRef = ref(db, `homeEducationFamilies/familyInformation/${courseStatus.familyId}`);
+      const familyRef = ref(db, `homeEducationFamilies/familyInformation/${courseSummary.familyId}`);
       const familySnapshot = await get(familyRef);
 
       if (!familySnapshot.exists()) {
@@ -286,7 +321,7 @@ const CourseStatusDashboard = () => {
       }
 
       const familyData = familySnapshot.val();
-      const student = familyData.students?.[courseStatus.studentId];
+      const student = familyData.students?.[courseSummary.studentId];
 
       if (!student) {
         toast.error('Student not found');
@@ -297,34 +332,59 @@ const CourseStatusDashboard = () => {
 
       // Construct course object from summary data
       const course = {
-        id: courseStatus.courseId,
-        name: courseStatus.courseName,
-        code: courseStatus.courseCode,
-        description: courseStatus.description,
-        credits: courseStatus.credits,
-        isAlbertaCourse: courseStatus.courseSource === 'albertaCourse'
+        id: courseSummary.courseId,
+        name: courseSummary.courseName,
+        code: courseSummary.courseCode,
+        description: courseSummary.description,
+        credits: courseSummary.credits,
+        isAlbertaCourse: courseSummary.courseSource === 'albertaCourse'
       };
 
       // For other courses, include additional fields
-      if (courseStatus.courseSource === 'otherCourse') {
-        course.courseCode = courseStatus.courseCode;
-        course.courseName = courseStatus.courseName;
+      if (courseSummary.courseSource === 'otherCourse') {
+        course.courseCode = courseSummary.courseCode;
+        course.courseName = courseSummary.courseName;
       }
 
-      setSelectedCourse({
+      console.log('Constructed course object:', course);
+      console.log('Student name:', studentName);
+      console.log('Family ID:', courseSummary.familyId);
+      console.log('School year:', courseSummary.schoolYear);
+      console.log('Student ID:', parseInt(courseSummary.studentId));
+
+      // Use the course summary data we already have (it's already in sync)
+      const initialStatus = {
+        committed: courseSummary.committed || false,
+        needsPasiRegistration: courseSummary.needsPasiRegistration || false,
+        pasiRegistrationComment: courseSummary.pasiRegistrationComment || '',
+        registrarConfirmedRegistration: courseSummary.registrarConfirmedRegistration || false,
+        finalMark: courseSummary.finalMark,
+        registrarComment: courseSummary.registrarComment || '',
+        registrarConfirmedMark: courseSummary.registrarConfirmedMark || false,
+        courseCodeVerified: courseSummary.courseCodeVerified || false,
+      };
+
+      const selectedCourseData = {
         course,
         studentName,
-        familyId: courseStatus.familyId,
-        schoolYear: courseStatus.schoolYear, // Keep in database format (25_26) for getCourseStatus
-        studentId: parseInt(courseStatus.studentId),
-        familyData
-      });
+        familyId: courseSummary.familyId,
+        schoolYear: courseSummary.schoolYear, // Keep in database format (25_26) for getCourseStatus
+        studentId: parseInt(courseSummary.studentId),
+        asn: student.asn, // Add ASN for PASI action buttons
+        familyData,
+        initialStatus
+      };
+
+      console.log('Setting selectedCourse with:', selectedCourseData);
+      console.log('Initial status from summary:', initialStatus);
+      setSelectedCourse(selectedCourseData);
       setSelectedFamilyData(familyData);
+      console.log('Opening action sheet...');
       setActionSheetOpen(true);
 
     } catch (error) {
       console.error('Error fetching family data:', error);
-      toast.error('Failed to load course details');
+      //toast.error('Failed to load course details');
     } finally {
       setLoadingAction(null);
     }
@@ -472,22 +532,75 @@ const CourseStatusDashboard = () => {
             </Tabs>
           </CardContent>
         </Card>
+
+        {/* Completed Registrations Accordion */}
+        {selectedTab === 'add-to-pasi' && completedRegistrations.length > 0 && (
+          <Card className="mt-4 bg-gray-50/50 border-gray-200">
+            <CardContent className="p-4">
+              <Accordion type="single" collapsible>
+                <AccordionItem value="completed" className="border-none">
+                  <AccordionTrigger className="hover:no-underline py-3">
+                    <div className="flex items-center gap-3">
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      <span className="font-semibold text-gray-700">
+                        Completed PASI Registrations
+                      </span>
+                      <Badge variant="secondary" className="ml-2 bg-green-100 text-green-800">
+                        {completedRegistrations.length}
+                      </Badge>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="mt-2 rounded-lg border border-gray-200 bg-white">
+                      <Table>
+                        <TableHeader>
+                          <TableRow className="bg-gray-50/50">
+                            <TableHead className="w-[180px]">Student Name</TableHead>
+                            <TableHead className="w-[140px]">ASN</TableHead>
+                            <TableHead className="w-[100px]">Course Code</TableHead>
+                            <TableHead className="w-[150px]">Last Updated</TableHead>
+                            <TableHead className="min-w-[300px]">PASI Comment</TableHead>
+                            <TableHead className="text-right w-[80px]">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {completedRegistrations.map((course) => (
+                            <CourseStatusRow
+                              key={course.summaryKey}
+                              course={course}
+                              studentCache={studentCache}
+                              fetchStudentName={fetchStudentName}
+                              onOpenAction={handleOpenCourseAction}
+                              isLoading={loadingAction === course.summaryKey}
+                            />
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Course Action Sheet */}
-      {selectedCourse && (
-        <CourseActionSheet
-          open={actionSheetOpen}
-          onOpenChange={setActionSheetOpen}
-          course={selectedCourse.course}
-          studentName={selectedCourse.studentName}
-          familyId={selectedCourse.familyId}
-          schoolYear={selectedCourse.schoolYear}
-          studentId={selectedCourse.studentId}
-          onRemoveCourse={handleRemoveCourse}
-          onStatusUpdate={handleStatusUpdate}
-        />
-      )}
+      <CourseActionSheet
+        open={actionSheetOpen && selectedCourse !== null}
+        onOpenChange={setActionSheetOpen}
+        course={selectedCourse?.course}
+        studentName={selectedCourse?.studentName}
+        familyId={selectedCourse?.familyId}
+        schoolYear={selectedCourse?.schoolYear}
+        studentId={selectedCourse?.studentId}
+        asn={selectedCourse?.asn}
+        initialStatus={selectedCourse?.initialStatus}
+        isRegistrarMode={true}
+        highlightAccordion={selectedTab === 'add-to-pasi' ? 'step2' : null}
+        onRemoveCourse={handleRemoveCourse}
+        onStatusUpdate={handleStatusUpdate}
+      />
     </div>
   );
 };
